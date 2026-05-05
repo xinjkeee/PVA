@@ -1,3 +1,4 @@
 /data/raw/ru/clips
 /__pycache__
+/src/audio/__pycache__
 .DS_Store
