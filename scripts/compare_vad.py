@@ -1,4 +1,3 @@
-import argparse
 from pathlib import Path
 
 import librosa
@@ -116,39 +115,3 @@ def compare_vad(
         "webrtc_segments": webrtc_segments,
         "webrtc_speech_seconds": _segment_total_duration(webrtc_segments),
     }
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--audio", required=True, help="Path to source audio file")
-    parser.add_argument("--output", default="./data/visualizations/vad_compare.png")
-    parser.add_argument("--webrtc-mode", type=int, default=2, choices=[0, 1, 2, 3])
-    parser.add_argument("--webrtc-frame-ms", type=int, default=30, choices=[10, 20, 30])
-    parser.add_argument("--energy-frame-ms", type=float, default=30.0)
-    parser.add_argument("--energy-hop-ms", type=float, default=10.0)
-    args = parser.parse_args()
-
-    result = compare_vad(
-        audio_path=args.audio,
-        save_path=args.output,
-        energy_frame_ms=args.energy_frame_ms,
-        energy_hop_ms=args.energy_hop_ms,
-        webrtc_frame_ms=args.webrtc_frame_ms,
-        webrtc_mode=args.webrtc_mode,
-    )
-
-    print(f"audio_seconds={result['audio_seconds']:.2f}")
-    print(
-        f"energy_segments={len(result['energy_segments'])} "
-        f"energy_speech_seconds={result['energy_speech_seconds']:.2f} "
-        f"energy_threshold_db={result['energy_threshold_db']:.1f}"
-    )
-    print(
-        f"webrtc_segments={len(result['webrtc_segments'])} "
-        f"webrtc_speech_seconds={result['webrtc_speech_seconds']:.2f}"
-    )
-    print(f"saved={args.output}")
-
-
-if __name__ == "__main__":
-    main()

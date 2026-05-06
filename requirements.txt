@@ -9,3 +9,5 @@ tqdm
 pyyaml
 matplotlib
 webrtcvad
+openai-whisper
+whisper

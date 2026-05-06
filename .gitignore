@@ -1,4 +1,7 @@
 /data/raw/ru/clips
-/__pycache__
-/src/audio/__pycache__
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 .DS_Store
+data/models

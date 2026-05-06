@@ -1,0 +1,32 @@
+{
+  "train": {
+    "records": 26918,
+    "duration_hours": 38.504,
+    "missing_duration": 0,
+    "duplicate_normalized_texts": 92,
+    "skipped": {
+      "empty_text": 2
+    }
+  },
+  "val": {
+    "records": 10282,
+    "duration_hours": 15.606,
+    "missing_duration": 0,
+    "duplicate_normalized_texts": 8,
+    "skipped": {}
+  },
+  "test": {
+    "records": 10283,
+    "duration_hours": 16.029,
+    "missing_duration": 0,
+    "duplicate_normalized_texts": 19,
+    "skipped": {}
+  },
+  "all": {
+    "records": 47483,
+    "duration_hours": 70.139,
+    "missing_duration": 0,
+    "duplicate_normalized_texts": 260,
+    "skipped": {}
+  }
+}

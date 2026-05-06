@@ -1,4 +1,3 @@
-import argparse
 from dataclasses import dataclass
 import random
 from pathlib import Path
@@ -44,7 +43,6 @@ def process_random_files(
     augment: bool = False,
     target_sr: int = TARGET_SR,
 ) -> list[ProcessedAudioFile]:
-    
     if n < 1:
         raise ValueError("--n must be at least 1")
 
@@ -69,29 +67,3 @@ def process_random_files(
         )
         for file_path in chosen
     ]
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input-dir", required=True, help="Folder with raw audio")
-    parser.add_argument("--output-dir", required=True, help="Folder for processed audio")
-    parser.add_argument("--n", type=int, default=5, help="How many random files to process")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--augment", action="store_true", help="Apply augmentations")
-
-    args = parser.parse_args()
-
-    processed = process_random_files(
-        input_dir=args.input_dir,
-        output_dir=args.output_dir,
-        n=args.n,
-        seed=args.seed,
-        augment=args.augment,
-    )
-
-    for i, item in enumerate(processed, start=1):
-        print(f"[{i}] {item.source_path.name} -> {item.output_path.name}")
-
-
-if __name__ == "__main__":
-    main()

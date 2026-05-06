@@ -1,4 +1,3 @@
-import argparse
 from pathlib import Path
 
 import librosa
@@ -93,18 +92,3 @@ def visualize_before_after(before_path: str, after_path: str, sample_num: int, s
         fig.savefig(save_path, dpi=200, bbox_inches="tight")
 
     plt.close(fig)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--before", required=True)
-    parser.add_argument("--after", required=True)
-    parser.add_argument("--sample-num", type=int, required=True)
-    parser.add_argument("--output", default=None)
-
-    args = parser.parse_args()
-    visualize_before_after(args.before, args.after, args.sample_num, args.output)
-
-
-if __name__ == "__main__":
-    main()
