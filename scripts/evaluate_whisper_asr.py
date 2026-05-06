@@ -1,25 +1,12 @@
-import json
 from pathlib import Path
-from typing import Any
-import numpy as np
 import whisper
 
+from src.asr.manifest import read_jsonl, write_jsonl
 from src.asr.metrics import error_rates
+from src.audio.decode import load_audio
 
 
 WHISPER_SAMPLE_RATE = 16000
-
-
-def read_manifest(path: Path, limit: int | None = None) -> list[dict[str, Any]]:
-    records = []
-    with path.open("r", encoding="utf-8") as f:
-        for line in f:
-            if not line.strip():
-                continue
-            records.append(json.loads(line))
-            if limit is not None and len(records) >= limit:
-                break
-    return records
 
 
 def resolve_audio_path(audio_path: str, project_root: Path) -> Path:
@@ -27,13 +14,6 @@ def resolve_audio_path(audio_path: str, project_root: Path) -> Path:
     if path.is_absolute():
         return path
     return project_root / path
-
-
-def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        for record in records:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def evaluate_manifest(
@@ -46,7 +26,7 @@ def evaluate_manifest(
     fp16: bool,
 ) -> dict[str, float | int]:
     project_root = Path.cwd()
-    records = read_manifest(manifest_path, limit=limit)
+    records = read_jsonl(manifest_path, limit=limit)
     download_root.mkdir(parents=True, exist_ok=True)
     model = whisper.load_model(model_name, download_root=str(download_root))
 
@@ -58,7 +38,7 @@ def evaluate_manifest(
 
     for idx, record in enumerate(records, start=1):
         audio_path = resolve_audio_path(record["audio"], project_root)
-        audio = whisper.load_audio(str(audio_path))
+        audio = load_audio(audio_path, sample_rate=WHISPER_SAMPLE_RATE)
         result = model.transcribe(
             audio,
             language=language,

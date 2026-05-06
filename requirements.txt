@@ -10,4 +10,4 @@ pyyaml
 matplotlib
 webrtcvad
 openai-whisper
-whisper
+av

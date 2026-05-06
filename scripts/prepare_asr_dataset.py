@@ -4,6 +4,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from src.asr.manifest import write_jsonl
 from src.asr.text import normalize_text
 
 
@@ -28,13 +29,6 @@ def read_clip_durations(path: Path) -> dict[str, int]:
                 continue
             durations[clip] = int(float(duration))
     return durations
-
-
-def write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        for record in records:
-            f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def load_split_records(

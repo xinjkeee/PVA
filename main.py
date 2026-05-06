@@ -117,6 +117,117 @@ def run_eval_asr(args: argparse.Namespace) -> None:
     print(f"saved={output_path}")
 
 
+def run_prepare_kws(args: argparse.Namespace) -> None:
+    from src.kws.data import build_kws_manifest_from_asr
+
+    stats = build_kws_manifest_from_asr(
+        source_manifest=Path(args.source_manifest),
+        keyword=args.keyword,
+        output_path=Path(args.output),
+        max_positives=args.max_positives,
+        max_negatives=args.max_negatives,
+        seed=args.seed,
+        match=args.match,
+    )
+    print(
+        f"keyword={stats['keyword']} positives={stats['positives']} "
+        f"negatives={stats['negatives']} total={stats['total']}"
+    )
+    print(f"saved={stats['output']}")
+
+
+def run_train_kws(args: argparse.Namespace) -> None:
+    from src.asr.text import normalize_text
+    from src.kws.data import split_kws_manifest
+    from src.kws.pipeline import train_kws_model
+
+    train_manifest = Path(args.train_manifest)
+    val_manifest = Path(args.val_manifest)
+    if not train_manifest.exists():
+        raise FileNotFoundError(
+            f"Train KWS manifest not found: {train_manifest}. "
+            f"Create it with: python main.py prepare-kws --keyword \"{args.keyword}\" "
+            f"--output {train_manifest}"
+        )
+    if not val_manifest.exists():
+        if not args.auto_split_val:
+            raise FileNotFoundError(
+                f"Validation KWS manifest not found: {val_manifest}. "
+                f"Create it with: python main.py prepare-kws --keyword \"{args.keyword}\" "
+                f"--source-manifest data/asr/common_voice_ru/manifest_val.jsonl --output {val_manifest}"
+            )
+
+        autosplit_train = train_manifest.with_name(f"{train_manifest.stem}_autosplit.jsonl")
+        split_stats = split_kws_manifest(
+            source_manifest=train_manifest,
+            train_output=autosplit_train,
+            val_output=val_manifest,
+            val_ratio=args.val_ratio,
+            seed=args.split_seed,
+        )
+        train_manifest = autosplit_train
+        print(
+            f"created validation split: train={split_stats['train_records']} "
+            f"val={split_stats['val_records']} saved={val_manifest}"
+        )
+
+    checkpoint = args.checkpoint
+    if checkpoint is None:
+        keyword_slug = "_".join(normalize_text(args.keyword).split()) or "keyword"
+        checkpoint = f"./data/kws/checkpoints/{keyword_slug}_cnn.pt"
+
+    feature_config = {
+        "sample_rate": args.sample_rate,
+        "duration_sec": args.duration_sec,
+        "n_fft": args.n_fft,
+        "hop_length": args.hop_length,
+        "n_mels": args.n_mels,
+        "f_min": args.f_min,
+        "f_max": args.f_max,
+    }
+    result = train_kws_model(
+        train_manifest=train_manifest,
+        val_manifest=val_manifest,
+        checkpoint_path=Path(checkpoint),
+        keyword=args.keyword,
+        epochs=args.epochs,
+        batch_size=args.batch_size,
+        lr=args.lr,
+        device=args.device,
+        limit_train=args.limit_train,
+        limit_val=args.limit_val,
+        feature_config=feature_config,
+    )
+    print(f"saved={result['checkpoint']} device={result['device']}")
+
+
+def run_detect_kws(args: argparse.Namespace) -> None:
+    from src.kws.pipeline import detect_keyword
+
+    result = detect_keyword(
+        audio_path=Path(args.audio),
+        checkpoint_path=Path(args.checkpoint),
+        threshold=args.threshold,
+        device=args.device,
+    )
+    print(
+        f"keyword={result['keyword']} probability={result['probability']:.4f} "
+        f"threshold={result['threshold']:.2f} wake={result['wake']}"
+    )
+
+
+def run_tts(args: argparse.Namespace) -> None:
+    from src.tts.system import synthesize_with_macos_say
+
+    output_path = synthesize_with_macos_say(
+        text=args.text,
+        output_path=Path(args.output),
+        voice=args.voice,
+        rate=args.rate,
+    )
+    print(f"saved={output_path}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Audio preprocessing, VAD, and ASR toolkit")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -164,6 +275,54 @@ def build_parser() -> argparse.ArgumentParser:
     eval_parser.add_argument("--limit", type=int, default=20)
     eval_parser.add_argument("--fp16", action="store_true")
     eval_parser.set_defaults(func=run_eval_asr)
+
+    prepare_kws_parser = subparsers.add_parser("prepare-kws", help="Build KWS labels from ASR manifest")
+    prepare_kws_parser.add_argument("--source-manifest", default="./data/asr/common_voice_ru/manifest_train.jsonl")
+    prepare_kws_parser.add_argument("--keyword", required=True)
+    prepare_kws_parser.add_argument("--output", default="./data/kws/kws_train.jsonl")
+    prepare_kws_parser.add_argument("--max-positives", type=int, default=None)
+    prepare_kws_parser.add_argument("--max-negatives", type=int, default=2500)
+    prepare_kws_parser.add_argument("--seed", type=int, default=42)
+    prepare_kws_parser.add_argument("--match", choices=["contains", "exact"], default="contains")
+    prepare_kws_parser.set_defaults(func=run_prepare_kws)
+
+    train_kws_parser = subparsers.add_parser("train-kws", help="Train a small CNN keyword spotter")
+    train_kws_parser.add_argument("--train-manifest", default="./data/kws/kws_train.jsonl")
+    train_kws_parser.add_argument("--val-manifest", default="./data/kws/kws_val.jsonl")
+    train_kws_parser.add_argument("--checkpoint", default=None)
+    train_kws_parser.add_argument("--keyword", required=True)
+    train_kws_parser.add_argument("--epochs", type=int, default=5)
+    train_kws_parser.add_argument("--batch-size", type=int, default=16)
+    train_kws_parser.add_argument("--lr", type=float, default=1e-3)
+    train_kws_parser.add_argument("--device", default="auto")
+    train_kws_parser.add_argument("--limit-train", type=int, default=None)
+    train_kws_parser.add_argument("--limit-val", type=int, default=None)
+    train_kws_parser.add_argument("--val-ratio", type=float, default=0.2)
+    train_kws_parser.add_argument("--split-seed", type=int, default=42)
+    train_kws_parser.add_argument("--no-auto-split-val", dest="auto_split_val", action="store_false")
+    train_kws_parser.add_argument("--sample-rate", type=int, default=16000)
+    train_kws_parser.add_argument("--duration-sec", type=float, default=1.5)
+    train_kws_parser.add_argument("--n-fft", type=int, default=400)
+    train_kws_parser.add_argument("--hop-length", type=int, default=160)
+    train_kws_parser.add_argument("--n-mels", type=int, default=40)
+    train_kws_parser.add_argument("--f-min", type=float, default=80.0)
+    train_kws_parser.add_argument("--f-max", type=float, default=7600.0)
+    train_kws_parser.set_defaults(auto_split_val=True)
+    train_kws_parser.set_defaults(func=run_train_kws)
+
+    detect_kws_parser = subparsers.add_parser("detect-kws", help="Run keyword spotting on one file")
+    detect_kws_parser.add_argument("--audio", required=True)
+    detect_kws_parser.add_argument("--checkpoint", required=True)
+    detect_kws_parser.add_argument("--threshold", type=float, default=0.5)
+    detect_kws_parser.add_argument("--device", default="auto")
+    detect_kws_parser.set_defaults(func=run_detect_kws)
+
+    tts_parser = subparsers.add_parser("tts", help="Synthesize a spoken response")
+    tts_parser.add_argument("--text", required=True)
+    tts_parser.add_argument("--output", default="./data/tts/response.aiff")
+    tts_parser.add_argument("--voice", default=None)
+    tts_parser.add_argument("--rate", type=int, default=None)
+    tts_parser.set_defaults(func=run_tts)
 
     return parser
 
