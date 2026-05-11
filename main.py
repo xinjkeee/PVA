@@ -228,6 +228,80 @@ def run_tts(args: argparse.Namespace) -> None:
     print(f"saved={output_path}")
 
 
+def build_assistant_config(args: argparse.Namespace):
+    from src.assistant.pipeline import AssistantConfig
+
+    kws_checkpoint = Path(args.kws_checkpoint) if args.kws_checkpoint else None
+    return AssistantConfig(
+        artifacts_dir=Path(args.artifacts_dir),
+        kws_checkpoint=kws_checkpoint,
+        kws_threshold=args.kws_threshold,
+        require_wake_word=args.require_wake_word,
+        device=args.device,
+        whisper_model=args.model,
+        whisper_download_root=Path(args.download_root),
+        language=args.language,
+        fp16=args.fp16,
+        tts_output=Path(args.tts_output),
+        tts_voice=args.voice,
+        tts_rate=args.rate,
+        synthesize_response=args.synthesize_response,
+        play_response=args.play_response,
+    )
+
+
+def print_assistant_result(result) -> None:
+    print(f"status={result.status}")
+    for stage, status, detail in result.stage_rows():
+        print(f"{stage}: {status} {detail}")
+    if result.speech_audio_path:
+        print(f"speech_audio={result.speech_audio_path}")
+    if result.transcript:
+        print(f"transcript={result.transcript}")
+    if result.response_text:
+        print(f"response={result.response_text}")
+    if result.errors:
+        print("errors:")
+        for error in result.errors:
+            print(f"- {error}")
+
+
+def run_assistant_file(args: argparse.Namespace) -> None:
+    from src.assistant.pipeline import AssistantPipeline
+
+    pipeline = AssistantPipeline(build_assistant_config(args))
+    result = pipeline.run_file(Path(args.audio))
+    print_assistant_result(result)
+
+
+def run_assistant_gui(args: argparse.Namespace) -> None:
+    from src.assistant.gui import run_gui
+
+    run_gui(
+        config=build_assistant_config(args),
+        record_seconds=args.record_seconds,
+    )
+
+
+def add_assistant_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--artifacts-dir", default="./data/assistant")
+    parser.add_argument("--kws-checkpoint", default="./data/kws/checkpoints/привет_cnn.pt")
+    parser.add_argument("--kws-threshold", type=float, default=0.5)
+    parser.add_argument("--require-wake-word", action="store_true")
+    parser.add_argument("--device", default="auto")
+    parser.add_argument("--model", default="tiny")
+    parser.add_argument("--download-root", default="./data/models/whisper")
+    parser.add_argument("--language", default="ru")
+    parser.add_argument("--fp16", action="store_true")
+    parser.add_argument("--tts-output", default="./data/tts/assistant_response.aiff")
+    parser.add_argument("--voice", default=None)
+    parser.add_argument("--rate", type=int, default=None)
+    parser.add_argument("--no-tts", dest="synthesize_response", action="store_false")
+    parser.add_argument("--no-play", dest="play_response", action="store_false")
+    parser.set_defaults(synthesize_response=True)
+    parser.set_defaults(play_response=True)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Audio preprocessing, VAD, and ASR toolkit")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -323,6 +397,22 @@ def build_parser() -> argparse.ArgumentParser:
     tts_parser.add_argument("--voice", default=None)
     tts_parser.add_argument("--rate", type=int, default=None)
     tts_parser.set_defaults(func=run_tts)
+
+    assistant_file_parser = subparsers.add_parser(
+        "assistant-file",
+        help="Run microphone-style assistant pipeline on one audio file",
+    )
+    assistant_file_parser.add_argument("--audio", required=True)
+    add_assistant_args(assistant_file_parser)
+    assistant_file_parser.set_defaults(func=run_assistant_file)
+
+    assistant_gui_parser = subparsers.add_parser(
+        "assistant-gui",
+        help="Open the integrated assistant GUI prototype",
+    )
+    assistant_gui_parser.add_argument("--record-seconds", type=float, default=5.0)
+    add_assistant_args(assistant_gui_parser)
+    assistant_gui_parser.set_defaults(func=run_assistant_gui)
 
     return parser
 

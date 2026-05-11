@@ -153,7 +153,7 @@ def detect_keyword(
     device: str = "auto",
 ) -> dict[str, Any]:
     torch_device = resolve_device(device)
-    checkpoint = torch.load(checkpoint_path, map_location=torch_device)
+    checkpoint = torch.load(checkpoint_path, map_location=torch_device, weights_only=False)
     config = checkpoint["feature_config"]
     model = SmallKWSCNN().to(torch_device)
     model.load_state_dict(checkpoint["model_state"])

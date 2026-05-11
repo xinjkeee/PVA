@@ -1,7 +1,9 @@
+customtkinter
 numpy
 scipy
 librosa
 soundfile
+sounddevice
 pydub
 torch
 torchaudio
@@ -10,4 +12,3 @@ pyyaml
 matplotlib
 webrtcvad
 openai-whisper
-av

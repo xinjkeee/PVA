@@ -1,12 +1,9 @@
 from pathlib import Path
-import whisper
 
 from src.asr.manifest import read_jsonl, write_jsonl
 from src.asr.metrics import error_rates
+from src.asr.whisper_runner import WHISPER_SAMPLE_RATE, WhisperASR
 from src.audio.decode import load_audio
-
-
-WHISPER_SAMPLE_RATE = 16000
 
 
 def resolve_audio_path(audio_path: str, project_root: Path) -> Path:
@@ -27,8 +24,12 @@ def evaluate_manifest(
 ) -> dict[str, float | int]:
     project_root = Path.cwd()
     records = read_jsonl(manifest_path, limit=limit)
-    download_root.mkdir(parents=True, exist_ok=True)
-    model = whisper.load_model(model_name, download_root=str(download_root))
+    asr = WhisperASR(
+        model_name=model_name,
+        download_root=download_root,
+        language=language,
+        fp16=fp16,
+    )
 
     predictions = []
     total_word_errors = 0
@@ -39,13 +40,7 @@ def evaluate_manifest(
     for idx, record in enumerate(records, start=1):
         audio_path = resolve_audio_path(record["audio"], project_root)
         audio = load_audio(audio_path, sample_rate=WHISPER_SAMPLE_RATE)
-        result = model.transcribe(
-            audio,
-            language=language,
-            task="transcribe",
-            fp16=fp16,
-        )
-        hypothesis = result.get("text", "").strip()
+        hypothesis = asr.transcribe_audio(audio)
         metrics = error_rates(record["text"], hypothesis)
 
         total_word_errors += int(metrics["word_errors"])

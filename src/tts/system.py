@@ -24,3 +24,24 @@ def synthesize_with_macos_say(
     command.extend(["-o", str(output_path), text])
     subprocess.run(command, check=True)
     return output_path
+
+
+def play_audio_file(audio_path: Path) -> bool:
+    afplay_path = shutil.which("afplay")
+    if afplay_path is not None:
+        subprocess.run([afplay_path, str(audio_path)], check=True)
+        return True
+
+    try:
+        import sounddevice as sd
+        import soundfile as sf
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "Audio playback requires macOS 'afplay' or optional packages "
+            "'sounddevice' and 'soundfile'."
+        ) from exc
+
+    audio, sample_rate = sf.read(str(audio_path), dtype="float32")
+    sd.play(audio, sample_rate)
+    sd.wait()
+    return True

@@ -133,7 +133,6 @@ def prepare_dataset(
     write_jsonl(output_dir / "manifest_all.jsonl", all_records)
     stats["all"] = summarize(all_records, Counter())
 
-    output_dir.mkdir(parents=True, exist_ok=True)
     with (output_dir / "dataset_stats.json").open("w", encoding="utf-8") as f:
         json.dump(stats, f, ensure_ascii=False, indent=2)
 
